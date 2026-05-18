@@ -265,9 +265,7 @@
     </style>
 </head>
 <body class="bg-dark-primary">
-    <!-- Ana Container -->
     <div class="min-h-screen flex flex-col">
-        <!-- Header -->
         <header class="bg-dark-secondary border-b border-gray-700 sticky top-0 z-40">
             <div class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
                 <div class="flex items-center justify-between">
@@ -285,7 +283,6 @@
             </div>
         </header>
 
-        <!-- Error Banner -->
         <div id="errorBanner" class="error-banner hidden">
             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
@@ -293,7 +290,6 @@
             <span id="errorMessage">Veri akışı şu an durduruldu, yeniden bağlanılıyor...</span>
         </div>
 
-        <!-- Tab Navigation -->
         <div class="bg-dark-secondary border-b border-gray-700">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex gap-8">
@@ -307,37 +303,30 @@
             </div>
         </div>
 
-        <!-- Main Content -->
         <main class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
-            <!-- Tab 1: Canlı Skorlar -->
             <section id="liveScorerSection" class="space-y-6">
-                <!-- Filter Buttons -->
                 <div class="flex flex-wrap gap-3">
                     <button id="filterAll" class="filter-btn active px-6 py-2 rounded-lg font-semibold text-light">
                         Hepsi
                     </button>
                     <button id="filterSuperLig" class="filter-btn px-6 py-2 rounded-lg font-semibold text-light">
-                        🇹🇷 Süper Lig
-                    </button>
-                    <button id="filterPremierLig" class="filter-btn px-6 py-2 rounded-lg font-semibold text-light">
                         🇬🇧 Premier Lig
+                    </button>
+                    <button id="filterAmberLig" class="filter-btn px-6 py-2 rounded-lg font-semibold text-light">
+                        🇪🇸 La Liga
                     </button>
                 </div>
 
-                <!-- Matches Container -->
                 <div id="matchesContainer" class="space-y-4">
-                    <!-- Maçlar buraya dinamik olarak eklenecek -->
                     <div class="text-center py-12">
                         <div class="spinner mx-auto mb-4"></div>
-                        <p class="text-muted">Canlı maçlar yükleniyor...</p>
+                        <p class="text-muted">Maçlar yükleniyor...</p>
                     </div>
                 </div>
             </section>
 
-            <!-- Tab 2: Sezon Fikstürü -->
             <section id="fixturesSection" class="hidden space-y-6">
                 <div id="fixturesContainer" class="fixture-grid">
-                    <!-- Fikstürler buraya dinamik olarak eklenecek -->
                     <div class="text-center py-12 col-span-full">
                         <div class="spinner mx-auto mb-4"></div>
                         <p class="text-muted">Sezon fikstürü yükleniyor...</p>
@@ -349,18 +338,17 @@
 
     <script>
         // ===== KONFIGÜRASYON =====
-        const API_TOKEN = 'JU0T990FH1ttpEi8nNnjJm9kPSsuJ8v8RwUiQQNSQy2jr5meFeQwICmUP3Q6';
-        const CORS_PROXY = 'https://cors-anywhere.herokuapp.com/';
-        const API_BASE = CORS_PROXY + 'https://api.sportmonks.com/v3/football';
-        const SUPER_LIG_ID = 600;
-        const PREMIER_LIG_ID = 8;
-        const UPDATE_INTERVAL = 15000; // 15 saniye
-        const GOAL_ANIMATION_DURATION = 3000; // 3 saniye
+        const API_TOKEN = '6f59243d57ff41c3985f3475ebd45259';
+        const API_BASE = 'https://api.football-data.org/v4';
+        // Tarayıcı bazlı CORS engelini aşmak için kullanılan proxy url'i
+        const CORS_PROXY = 'https://corsproxy.io/?';
+        
+        const LEAGUES = ['PL', 'PD']; 
 
         // ===== STATE YÖNETİMİ =====
         let currentTab = 'liveScores';
         let currentFilter = 'all';
-        let previousScores = new Map(); // Eski skorları hatırlamak için
+        let previousScores = new Map();
         let updateIntervalId = null;
         let isConnecting = false;
 
@@ -373,44 +361,34 @@
         const fixturesContainer = document.getElementById('fixturesContainer');
         const filterAllBtn = document.getElementById('filterAll');
         const filterSuperLigBtn = document.getElementById('filterSuperLig');
-        const filterPremierLigBtn = document.getElementById('filterPremierLig');
+        const filterAmberLigBtn = document.getElementById('filterAmberLig');
         const errorBanner = document.getElementById('errorBanner');
         const errorMessage = document.getElementById('errorMessage');
         const updateIndicator = document.getElementById('updateIndicator');
 
         // ===== API FETCH FONKSİYONLARI =====
-        async function fetchWithErrorHandling(url, options = {}) {
+        async function fetchLeagueMatches(leagueCode) {
             try {
-                const response = await fetch(url, {
-                    ...options,
-                    headers: {
-                        'Authorization': `Bearer ${API_TOKEN}`,
-                        'Accept': 'application/json',
-                        ...options.headers
-                    }
+                // İstek urline proxy ekleyerek CORS aşımını sağlıyoruz
+                const targetUrl = encodeURIComponent(`${API_BASE}/competitions/${leagueCode}/matches`);
+                const response = await fetch(`${CORS_PROXY}${targetUrl}`, {
+                    headers: { 'X-Auth-Token': API_TOKEN }
                 });
 
                 if (!response.ok) {
-                    throw new Error(`API Error: ${response.status} ${response.statusText}`);
+                    throw new Error(`Kod: ${response.status}`);
                 }
 
                 const data = await response.json();
-                if (!data) {
-                    throw new Error('API response is null or empty');
-                }
-
-                hideErrorBanner();
-                return data;
+                return data.matches || [];
             } catch (error) {
-                console.error('Fetch Error:', error.message);
-                showErrorBanner(error.message);
-                return null;
+                console.error(`${leagueCode} CORS/Yükleme Hatası:`, error.message);
+                return [];
             }
         }
 
-        // ===== HATA YÖNETIMI =====
-        function showErrorBanner(message = null) {
-            errorMessage.textContent = message || 'Veri akışı şu an durduruldu, yeniden bağlanılıyor...';
+        function showErrorBanner(message) {
+            errorMessage.textContent = message;
             errorBanner.classList.remove('hidden');
         }
 
@@ -418,62 +396,84 @@
             errorBanner.classList.add('hidden');
         }
 
-        // ===== CANLI SKORLAR YÜKLEME =====
+        // ===== BİRLEŞİK MAÇ YÜKLEME SİSTEMİ =====
         async function loadLiveScores() {
-            const url = `${API_BASE}/livescores/inplay?include=participants;scores;periods;events;league;country;round`;
+            if (isConnecting) return;
+            isConnecting = true;
             
-            const data = await fetchWithErrorHandling(url);
-            if (!data?.data) {
-                matchesContainer.innerHTML = '<p class="text-center text-muted py-8">Maç bulunamadı.</p>';
+            updateIndicator.style.opacity = '1';
+
+            // İki lig verisini paralel güvenli şekilde çekiyoruz
+            const promises = LEAGUES.map(code => fetchLeagueMatches(code));
+            const results = await Promise.all(promises);
+            let allMatches = results.flat();
+
+            updateIndicator.style.opacity = '0.4';
+            isConnecting = false;
+
+            if (allMatches.length === 0) {
+                showErrorBanner('Bağlantı proxy üzerinden kuruluyor, lütfen biraz bekleyin veya sayfayı yenileyin.');
+                matchesContainer.innerHTML = '<p class="text-center text-muted py-8">Maçlar yüklenirken proxy yanıtı bekleniyor...</p>';
+                // Eğer ilk istek başarısız olursa kısa süre sonra otomatik tekrar dene
+                setTimeout(loadLiveScores, 3000);
                 return;
             }
 
-            // Türkiye Süper Lig ve İngiltere Premier Lig'e göre filtrele
-            let matches = data.data.filter(match => {
-                const leagueId = match.league?.id;
-                return leagueId === SUPER_LIG_ID || leagueId === PREMIER_LIG_ID;
+            hideErrorBanner();
+            renderProcessedMatches(allMatches);
+        }
+
+        // ===== MAÇLARI FİLTRELE VE LISTELE =====
+        function renderProcessedMatches(matches) {
+            let displayMatches = matches.filter(match => {
+                const status = match.status;
+                return ['LIVE', 'IN_PLAY', 'PAUSED', 'FINISHED', 'TIMED'].includes(status);
             });
 
-            // Geçerli filtreyi uygula
             if (currentFilter === 'superLig') {
-                matches = matches.filter(m => m.league?.id === SUPER_LIG_ID);
+                displayMatches = displayMatches.filter(m => m.competition?.code === 'PL');
             } else if (currentFilter === 'premierLig') {
-                matches = matches.filter(m => m.league?.id === PREMIER_LIG_ID);
+                displayMatches = displayMatches.filter(m => m.competition?.code === 'PD');
             }
 
-            if (matches.length === 0) {
-                matchesContainer.innerHTML = '<p class="text-center text-muted py-8">Seçili filtreye göre maç bulunamadı.</p>';
+            // En güncel tarihli maçlar üstte dursun
+            displayMatches.sort((a, b) => new Date(b.utcDate) - new Date(a.utcDate));
+
+            // Listeyi makul bir seviyede sınırla
+            const finalMatches = displayMatches.slice(0, 15);
+
+            if (finalMatches.length === 0) {
+                matchesContainer.innerHTML = '<p class="text-center text-muted py-8">Seçili filtrede güncel maç bulunamadı.</p>';
                 return;
             }
 
-            // Maçları render et
-            matchesContainer.innerHTML = matches.map(match => createMatchCard(match)).join('');
+            matchesContainer.innerHTML = finalMatches.map(match => createMatchCard(match)).join('');
 
-            // Event listener'ları ekle
-            matches.forEach(match => {
-                const card = document.querySelector(`[data-match-id="${match.id}"]`);
+            finalMatches.forEach(match => {
+                const card = document.querySelector(`.match-card[data-match-id="${match.id}"]`);
                 if (card) {
                     card.addEventListener('click', () => toggleAccordion(match.id));
                 }
             });
         }
 
-        // ===== MATCH CARD OLUŞTUR =====
+        // ===== MATCH CARD TASARIMI =====
         function createMatchCard(match) {
-            const homeTeam = match.participants?.find(p => p.meta?.position === 'home');
-            const awayTeam = match.participants?.find(p => p.meta?.position === 'away');
-            const homeScore = match.scores?.find(s => s.participant_id === homeTeam?.id)?.score ?? 0;
-            const awayScore = match.scores?.find(s => s.participant_id === awayTeam?.id)?.score ?? 0;
-            const status = match.status ?? 'UNKNOWN';
-            const minute = match.period_start_timestamp ? calculateMinute(match) : '0';
-            const leagueName = match.league?.name ?? 'Bilinmeyen Lig';
+            const homeTeam = match.homeTeam;
+            const awayTeam = match.awayTeam;
+            
+            const homeScore = match.score?.fullTime?.home ?? 0;
+            const awayScore = match.score?.fullTime?.away ?? 0;
+            
+            let status = match.status;
+            const isLive = ['LIVE', 'IN_PLAY', 'PAUSED'].includes(status);
+            
+            const leagueName = match.competition?.name || 'Lig';
 
-            // Önceki skoru kontrol et (gol animasyonu için)
             const matchKey = `match_${match.id}`;
             const previousScore = previousScores.get(matchKey);
             const scoreChanged = previousScore && (previousScore.home !== homeScore || previousScore.away !== awayScore);
 
-            // Yeni skoru kaydet
             previousScores.set(matchKey, { home: homeScore, away: awayScore });
 
             const htmlContent = `
@@ -481,62 +481,56 @@
                      data-match-id="${match.id}" 
                      ${scoreChanged ? 'id="goal-flash-' + match.id + '"' : ''}>
                     
-                    <!-- Üst Bilgi Satırı -->
                     <div class="px-6 py-3 bg-dark-tertiary flex justify-between items-center border-b border-gray-700">
                         <div class="flex items-center gap-2">
                             <span class="league-badge">${leagueName}</span>
-                            <span class="text-xs text-muted">${formatMatchTime(match)}</span>
+                            <span class="text-xs text-muted">${formatMatchTime(match.utcDate)}</span>
                         </div>
-                        <span class="text-xs text-muted px-2 py-1 bg-dark-primary rounded">${status}</span>
+                        <span class="text-xs text-muted px-2 py-1 bg-dark-primary rounded">
+                            ${status === 'FINISHED' ? 'Bitti' : (status === 'TIMED' ? 'Başlamadı' : 'Canlı')}
+                        </span>
                     </div>
 
-                    <!-- Ana Maç İçeriği -->
                     <div class="px-6 py-6 flex items-center justify-between">
-                        <!-- Sol: Canlı Dakika -->
                         <div class="text-center min-w-[60px]">
-                            <div class="live-badge">⏱️ ${minute}'</div>
+                            <div class="${isLive ? 'live-badge' : 'bg-dark-tertiary px-3 py-1.5 rounded text-sm text-muted font-semibold'}">
+                                ${isLive ? '⏱️ Canlı' : (status === 'FINISHED' ? '🏁 MS' : '📅')}
+                            </div>
                         </div>
 
-                        <!-- Orta: Takımlar ve Skor -->
                         <div class="flex-1 mx-6 text-center">
-                            <!-- Ev Sahibi Takım -->
                             <div class="flex items-center justify-center gap-3 mb-4">
-                                <img src="${homeTeam?.image_path || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22%3E%3Crect fill=%22%23404045%22 width=%2240%22 height=%2240%22/%3E%3C/svg%3E'}" 
+                                <img src="${homeTeam?.crest || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22%3E%3Crect fill=%22%23404045%22 width=%2240%22 height=%2240%22/%3E%3C/svg%3E'}" 
                                      alt="${homeTeam?.name}" class="team-logo">
-                                <span class="font-semibold text-light max-w-xs truncate">${homeTeam?.name ?? 'Ev Sahibi'}</span>
+                                <span class="font-semibold text-light max-w-xs truncate">${homeTeam?.shortName || homeTeam?.name ?? 'Ev Sahibi'}</span>
                             </div>
 
-                            <!-- Skor -->
                             <div class="text-4xl font-bold text-light my-4">
                                 <span>${homeScore}</span>
                                 <span class="text-muted text-2xl"> - </span>
                                 <span>${awayScore}</span>
                             </div>
 
-                            <!-- Deplasman Takımı -->
                             <div class="flex items-center justify-center gap-3 mt-4">
-                                <span class="font-semibold text-light max-w-xs truncate">${awayTeam?.name ?? 'Deplasman'}</span>
-                                <img src="${awayTeam?.image_path || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22%3E%3Crect fill=%22%23404045%22 width=%2240%22 height=%2240%22/%3E%3C/svg%3E'}" 
+                                <span class="font-semibold text-light max-w-xs truncate">${awayTeam?.shortName || awayTeam?.name ?? 'Deplasman'}</span>
+                                <img src="${awayTeam?.crest || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22%3E%3Crect fill=%22%23404045%22 width=%2240%22 height=%2240%22/%3E%3C/svg%3E'}" 
                                      alt="${awayTeam?.name}" class="team-logo">
                             </div>
                         </div>
 
-                        <!-- Sağ: Boş Alan -->
                         <div class="min-w-[60px]"></div>
                     </div>
 
-                    <!-- Accordion Content (Events) -->
                     <div class="accordion-content" data-match-id="${match.id}">
                         <div class="px-6 py-4 bg-dark-primary border-t border-gray-700">
-                            <h3 class="font-semibold text-light mb-4">Maç Olayları</h3>
-                            ${renderEvents(match.events) || '<p class="text-muted text-sm">Henüz olay kaydı yok.</p>'}
+                            <h3 class="font-semibold text-light mb-2">Maç Bilgisi</h3>
+                            <p class="text-muted text-sm">Hafta: ${match.matchday || '-'} | Maç Durumu: ${status}</p>
                         </div>
                     </div>
                 </div>
             `;
 
-            // Gol animasyonu ekle
-            if (scoreChanged) {
+            if (scoreChanged && isLive) {
                 setTimeout(() => {
                     const element = document.getElementById(`goal-flash-${match.id}`);
                     if (element) {
@@ -548,50 +542,9 @@
             return htmlContent;
         }
 
-        // ===== OLAYLARI RENDER ET =====
-        function renderEvents(events) {
-            if (!events || events.length === 0) {
-                return null;
-            }
-
-            const eventsList = events
-                .sort((a, b) => (a.minute ?? 0) - (b.minute ?? 0))
-                .map(event => {
-                    const minute = event.minute ?? '?';
-                    const playerName = event.player?.name ?? 'Bilinmeyen Oyuncu';
-                    const eventType = event.type?.toUpperCase() ?? 'UNKNOWN';
-
-                    let icon = '⚽';
-                    let label = playerName;
-
-                    if (eventType.includes('GOAL') || eventType === 'GOAL') {
-                        icon = '⚽';
-                        label = `${playerName}`;
-                    } else if (eventType.includes('YELLOW') || eventType === 'YELLOWCARD') {
-                        icon = '🟨';
-                        label = `${playerName}`;
-                    } else if (eventType.includes('RED') || eventType === 'REDCARD') {
-                        icon = '🟥';
-                        label = `${playerName}`;
-                    } else if (eventType.includes('SUBSTITUTION') || eventType === 'SUBSTITUTION') {
-                        icon = '🔄';
-                        label = `${playerName}`;
-                    }
-
-                    return `<div class="flex items-center gap-2 py-2 text-sm text-muted">
-                        <span class="badge-goal">${icon}</span>
-                        <span class="font-semibold">${minute}'</span>
-                        <span>${label}</span>
-                    </div>`;
-                })
-                .join('');
-
-            return `<div class="space-y-1">${eventsList}</div>`;
-        }
-
         // ===== ACCORDION TOGGLE =====
         function toggleAccordion(matchId) {
-            const accordionContent = document.querySelector(`[data-match-id="${matchId}"]`);
+            const accordionContent = document.querySelector(`.accordion-content[data-match-id="${matchId}"]`);
             if (accordionContent) {
                 accordionContent.classList.toggle('open');
             }
@@ -608,6 +561,7 @@
                 tabFixturesBtn.classList.remove('active');
                 tabLiveScoresBtn.classList.remove('text-muted');
                 tabFixturesBtn.classList.add('text-muted');
+                loadLiveScores();
             } else {
                 liveScorerSection.classList.add('hidden');
                 fixturesSection.classList.remove('hidden');
@@ -625,73 +579,67 @@
 
             filterAllBtn.classList.toggle('active', filter === 'all');
             filterSuperLigBtn.classList.toggle('active', filter === 'superLig');
-            filterPremierLigBtn.classList.toggle('active', filter === 'premierLig');
+            filterAmberLigBtn.classList.toggle('active', filter === 'premierLig');
 
-            loadLiveScores();
+            if (currentTab === 'liveScores') {
+                loadLiveScores();
+            } else {
+                loadFixtures();
+            }
         }
 
-        // ===== SEZONFİKSTÜRÜ YÜKLEME =====
+        // ===== SEZON FİKSTÜRÜ YÜKLEME =====
         async function loadFixtures() {
-            // Örnek fikstür verisi (gerçek API'den çekilecek)
-            const url = `${API_BASE}/fixtures?include=participants;league;stage;round&per_page=50`;
+            fixturesContainer.innerHTML = '<div class="text-center py-12 col-span-full"><div class="spinner mx-auto mb-4"></div><p class="text-muted">Gelecek fikstür yükleniyor...</p></div>';
             
-            const data = await fetchWithErrorHandling(url);
-            if (!data?.data) {
-                fixturesContainer.innerHTML = '<p class="text-center text-muted py-8 col-span-full">Fikstür bulunamadı.</p>';
-                return;
+            const promises = LEAGUES.map(code => fetchLeagueMatches(code));
+            const results = await Promise.all(promises);
+            let allMatches = results.flat();
+
+            let fixtures = allMatches.filter(fixture => fixture.status === 'TIMED');
+
+            if (currentFilter === 'superLig') {
+                fixtures = fixtures.filter(m => m.competition?.code === 'PL');
+            } else if (currentFilter === 'premierLig') {
+                fixtures = fixtures.filter(m => m.competition?.code === 'PD');
             }
 
-            let fixtures = data.data.filter(fixture => {
-                const leagueId = fixture.league?.id;
-                return leagueId === SUPER_LIG_ID || leagueId === PREMIER_LIG_ID;
-            });
+            fixtures.sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
 
             if (fixtures.length === 0) {
-                fixturesContainer.innerHTML = '<p class="text-center text-muted py-8 col-span-full">Seçili filtreye göre fikstür bulunamadı.</p>';
+                fixturesContainer.innerHTML = '<p class="text-center text-muted py-8 col-span-full">Yakın tarihte planlanmış fikstür maçı bulunmuyor.</p>';
                 return;
             }
 
-            fixturesContainer.innerHTML = fixtures.map(fixture => createFixtureCard(fixture)).join('');
+            fixturesContainer.innerHTML = fixtures.slice(0, 12).map(fixture => createFixtureCard(fixture)).join('');
         }
 
         // ===== FİKSTÜR CARD OLUŞTUR =====
         function createFixtureCard(fixture) {
-            const homeTeam = fixture.participants?.find(p => p.meta?.position === 'home');
-            const awayTeam = fixture.participants?.find(p => p.meta?.position === 'away');
-            const leagueName = fixture.league?.name ?? 'Bilinmeyen Lig';
-            const startsAt = fixture.starting_at ?? new Date().toISOString();
-            const formattedDate = new Date(startsAt).toLocaleDateString('tr-TR', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
+            const homeTeam = fixture.homeTeam;
+            const awayTeam = fixture.awayTeam;
+            const leagueName = fixture.competition?.name || 'Lig';
+            const formattedDate = formatMatchTime(fixture.utcDate);
 
             return `
                 <div class="bg-dark-secondary rounded-lg overflow-hidden hover:bg-dark-tertiary transition-all">
-                    <!-- Üst Bilgi -->
                     <div class="px-4 py-3 bg-dark-tertiary flex justify-between items-center border-b border-gray-700">
                         <span class="league-badge">${leagueName}</span>
                         <span class="text-xs text-muted">${formattedDate}</span>
                     </div>
 
-                    <!-- İçerik -->
                     <div class="px-4 py-6 text-center">
-                        <!-- Ev Sahibi -->
                         <div class="flex items-center justify-center gap-3 mb-4">
-                            <img src="${homeTeam?.image_path || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2232%22 height=%2232%22%3E%3Crect fill=%22%23404045%22 width=%2232%22 height=%2232%22/%3E%3C/svg%3E'}" 
+                            <img src="${homeTeam?.crest || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2232%22 height=%2232%22%3E%3Crect fill=%22%23404045%22 width=%2232%22 height=%2232%22/%3E%3C/svg%3E'}" 
                                  alt="${homeTeam?.name}" class="team-logo" style="width: 32px; height: 32px;">
-                            <span class="font-semibold text-light text-sm truncate">${homeTeam?.name ?? 'Ev Sahibi'}</span>
+                            <span class="font-semibold text-light text-sm truncate">${homeTeam?.shortName || homeTeam?.name ?? 'Ev Sahibi'}</span>
                         </div>
 
-                        <!-- Saat -->
                         <div class="text-2xl font-bold text-muted my-2">VS</div>
 
-                        <!-- Deplasman -->
                         <div class="flex items-center justify-center gap-3 mt-4">
-                            <span class="font-semibold text-light text-sm truncate">${awayTeam?.name ?? 'Deplasman'}</span>
-                            <img src="${awayTeam?.image_path || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2232%22 height=%2232%22%3E%3Crect fill=%22%23404045%22 width=%2232%22 height=%2232%22/%3E%3C/svg%3E'}" 
+                            <span class="font-semibold text-light text-sm truncate">${awayTeam?.shortName || awayTeam?.name ?? 'Deplasman'}</span>
+                            <img src="${awayTeam?.crest || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2232%22 height=%2232%22%3E%3Crect fill=%22%23404045%22 width=%2232%22 height=%2232%22/%3E%3C/svg%3E'}" 
                                  alt="${awayTeam?.name}" class="team-logo" style="width: 32px; height: 32px;">
                         </div>
                     </div>
@@ -700,70 +648,48 @@
         }
 
         // ===== YARDIMCI FONKSİYONLAR =====
-        function calculateMinute(match) {
-            const startTime = match.period_start_timestamp;
-            if (!startTime) return '0';
-
-            const now = Math.floor(Date.now() / 1000);
-            const minute = Math.floor((now - startTime) / 60);
-            return Math.max(0, minute);
+        function formatMatchTime(utcString) {
+            if (!utcString) return 'Saat Bilinmiyor';
+            const date = new Date(utcString);
+            return date.toLocaleString('tr-TR', { 
+                day: '2-digit', 
+                month: '2-digit', 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
         }
 
-        function formatMatchTime(match) {
-            const startsAt = match.starting_at;
-            if (!startsAt) return 'Saat Bilinmiyor';
-
-            const date = new Date(startsAt);
-            return date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-        }
-
-        // ===== TAB VE FİLTRE EVENT LİSTENER'LARI =====
+        // ===== EVENT LİSTENER'LAR =====
         tabLiveScoresBtn.addEventListener('click', () => switchTab('liveScores'));
         tabFixturesBtn.addEventListener('click', () => switchTab('fixtures'));
 
         filterAllBtn.addEventListener('click', () => setFilter('all'));
         filterSuperLigBtn.addEventListener('click', () => setFilter('superLig'));
-        filterPremierLigBtn.addEventListener('click', () => setFilter('premierLig'));
+        filterAmberLigBtn.addEventListener('click', () => setFilter('premierLig'));
 
-        // ===== KENDİNİ DÜZELTME İLE GÜNCELLEME LOOP'U =====
-        async function startAutoUpdate() {
-            if (isConnecting) return;
-            isConnecting = true;
-
-            await loadLiveScores();
-
-            isConnecting = false;
-        }
-
+        // ===== AUTO UPDATE LOOP =====
         function startUpdateInterval() {
-            // İlk yükleme
-            startAutoUpdate();
+            loadLiveScores();
 
-            // Sonra her 15 saniyede güncelle
             if (updateIntervalId) {
                 clearInterval(updateIntervalId);
             }
 
             updateIntervalId = setInterval(() => {
                 if (currentTab === 'liveScores') {
-                    startAutoUpdate();
+                    loadLiveScores();
                 }
-            }, UPDATE_INTERVAL);
+            }, 25000); // Proxy sunucusunu yormamak ve kısıtlanmamak adına 25 saniye aralık dengelidir
         }
 
-        // ===== SAYFAYI BAĞLA VE BAŞLAT =====
         document.addEventListener('DOMContentLoaded', () => {
             startUpdateInterval();
         });
 
-        // Sayfa kapatılırken interval'ı temizle
         window.addEventListener('beforeunload', () => {
-            if (updateIntervalId) {
-                clearInterval(updateIntervalId);
-            }
+            if (updateIntervalId) clearInterval(updateIntervalId);
         });
 
-        // ===== VISIBILITY CHANGE (Sekme arka plana alındığında veri çekme durdur) =====
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
                 if (updateIntervalId) {
